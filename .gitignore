@@ -1,0 +1,17 @@
+# Local config
+.env
+
+# Inputs & outputs (often large or sensitive)
+input/
+output/
+assets/
+
+# Temp & caches
+*.tmp
+*.log
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+build/
+dist/
