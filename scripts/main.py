@@ -27,6 +27,7 @@ from integrator import rk2_fixed, rk23_adaptive  # noqa: E402
 from user_model import original_interaction  # noqa: E402
 
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", PROJECT_ROOT / "output")).expanduser()
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_config_by_id(exp_id: int):
