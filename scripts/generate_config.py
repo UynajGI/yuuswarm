@@ -3,7 +3,6 @@ import json
 from pathlib import Path
 
 import numpy as np
-from dotenv import load_dotenv
 
 # --- 1. 定义参数空间 ---
 
