@@ -1,11 +1,15 @@
+# scripts/main.py
+import hashlib
 import json  # 用于保存元数据
 import os
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 import h5py
 import numpy as np
+from dotenv import load_dotenv
 
 # 确保能导入你的模块
 sys.path.append("/home/jiangyuan/swarmlators/src")
@@ -14,21 +18,84 @@ from engine import create_solver, init_states
 from integrator import rk2_fixed, rk23_adaptive
 from user_model import original_interaction
 
+# 获取当前脚本所在目录，然后向上一级得到项目根目录（proj/）
+SCRIPT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = SCRIPT_DIR.parent  # 因为 script/ 在 proj/ 下
 
-def save_results(t_array, y_array, config_data, output_dir="sim_results"):
+# 加载 proj/.env
+dotenv_path = PROJECT_ROOT / ".env"
+load_dotenv(dotenv_path)
+
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", PROJECT_ROOT / "output")).expanduser()
+
+
+def load_config_by_id(exp_id: int):
+    """从 experiments.json 文件加载指定 ID 的配置。"""
+    # 假设 experiments.json 位于脚本运行目录或项目根目录
+    CONFIG_PATH = SCRIPT_DIR / "experiments.json"
+
+    if not CONFIG_PATH.exists():
+        raise FileNotFoundError(f"Configuration file not found at: {CONFIG_PATH}")
+
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        all_configs = json.load(f)
+
+    # 数组索引刚好对应 ID
+    if exp_id >= len(all_configs):
+        raise IndexError(f"Experiment ID {exp_id} out of bounds.")
+
+    config = all_configs[exp_id]
+
+    # 将 params 列表转换回 NumPy 数组
+    config["params"] = np.array(config["params"])
+
+    return config
+
+
+def get_run_id(config):
+    """根据核心参数生成一个简短的、唯一的运行ID。"""
+    # 提取所有影响模拟结果的关键参数
+    # 注意：必须将 NumPy 数组转换为列表，以保证 JSON 可序列化和哈希一致性
+
+    # 移除非核心/变动的元数据，如时间、运行时长等
+    core_config = {
+        "N": config["N"],
+        "d": config["d"],
+        "d_s": config["d_s"],
+        "L": config["L"],
+        "T_end": config["T_end"],
+        "dt_fixed": config["dt_fixed"],
+        "params": config["params"].tolist(),  # 转换为列表
+        "integrator": config["integrator"],
+        "seed": config["seed"],
+    }
+
+    # 将字典规范化为字符串，进行哈希计算
+    config_str = json.dumps(core_config, sort_keys=True)
+
+    # 使用 SHA-1 或 SHA-256 生成哈希值，取前几位作为短ID
+    run_hash = hashlib.sha1(config_str.encode("utf-8")).hexdigest()[:8]
+
+    # 构造可读性强的目录名
+    dirname = (
+        f"sim_N{config['N']}_T{config['T_end']:.0f}_{config['integrator']}_{run_hash}"
+    )
+    return dirname
+
+
+def save_results(t_array, y_array, config_data, output_dir: Path):
     """
     保存模拟结果到指定的输出目录，使用 HDF5 (.h5) 格式存储数据和元数据。
     同时生成JSON格式的元数据文件。
     """
     # 创建输出目录
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # 定义 HDF5 文件路径
-    h5_path = os.path.join(output_dir, "simulation_data.h5")
+    h5_path = output_dir / "results.h5"
 
     # 定义 JSON 元数据文件路径
-    json_path = os.path.join(output_dir, "metadata.json")
+    json_path = output_dir / "metadata.json"
 
     # --- 1. 保存数据和元数据 (HDF5) ---
     print(f"Saving data and metadata to HDF5 file: {h5_path}")
@@ -75,7 +142,7 @@ def save_results(t_array, y_array, config_data, output_dir="sim_results"):
 
     # 打印文件大小，确认压缩效果
     size_mb = os.path.getsize(h5_path) / (1024 * 1024)
-    print(f"\nHDF5 file saved successfully.")
+    print("\nHDF5 file saved successfully.")
     print(f"Final file size: {size_mb:.2f} MB")
 
     # 提示如何读取文件
@@ -194,12 +261,12 @@ def run_simulation(
 
     config = {
         "N": N,
-        "d": d,  # 记录维度
-        "d_s": d_s,  # 记录维度
+        "d": d,
+        "d_s": d_s,
         "L": L,
         "T_end": T_end,
         "dt_fixed": dt_fixed,
-        "params": params,
+        "params": params,  # <-- 原始 NumPy 数组
         "integrator": integrator_name,
         "total_time_s": total_time,
         "compile_time_s": compile_time,
@@ -221,34 +288,56 @@ def run_simulation(
     print(f"  Final time: {ts[-1]:.4f}")
     print("-" * 60)
 
-    save_results(ts, ys, config, output_dir)
-    print(f"Results saved successfully to directory: {output_dir}")
+    run_id = get_run_id(config)
+    output_dir_new = Path(output_dir) / str(run_id)
+    print(f"Generated Run ID: {run_id}")
+    print(f"Saving results to: {output_dir_new}")
+
+    save_results(ts, ys, config, output_dir_new)
+    print(f"Results saved successfully to directory: {output_dir_new}")
 
     end_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{end_timestamp}] Simulation completed successfully")
 
 
 if __name__ == "__main__":
-    # --- 示例调用 ---
+    import argparse
 
-    # 定义核心参数
-    N_sim = 1000
-    D_sim = 2  # 使用 2D 空间
-    DS_sim = 2  # 使用 2D 自旋
-    T_sim = 100.0
-    DT_sim = 0.1
-    L_sim = 5.0
-    PARAMS_sim = np.array([1.0, 1.0, 1.0, -0.1])  # A, B, J, K
+    parser = argparse.ArgumentParser(
+        description="Run a Swarmlators N-body simulation based on an Experiment ID."
+    )
+    # 只需要一个参数：实验 ID
+    parser.add_argument(
+        "experiment_id",
+        type=int,
+        help="The ID of the experiment to run from experiments.json.",
+    )
 
-    # 配置 1: RK2 Fixed 积分
+    args = parser.parse_args()
+    exp_id = args.experiment_id
+
+    # 1. 加载配置
+    try:
+        config = load_config_by_id(exp_id)
+    except Exception as e:
+        print(f"FATAL: Failed to load config for ID {exp_id}: {e}")
+        sys.exit(1)
+
+    print(
+        f"Loaded Configuration for ID {exp_id}: K={config['params'][3]}, Seed={config['seed']}"
+    )
+
+    # 2. 调用主函数
+    # 注意：这里需要确保 run_simulation 函数的参数顺序和名称一致
     run_simulation(
-        N=N_sim,
-        d=D_sim,
-        d_s=DS_sim,
-        L=L_sim,
-        T_end=T_sim,
-        dt_fixed=DT_sim,
-        params=PARAMS_sim,
-        integrator_name="rk2_fixed",
-        output_dir=f"results_N{N_sim}_D{D_sim}DS{DS_sim}_RK2",
+        N=config["N"],
+        d=config["d"],
+        d_s=config["d_s"],
+        L=config["L"],
+        T_end=config["T_end"],
+        dt_fixed=config["dt_fixed"],
+        params=config["params"],
+        integrator_name=config["integrator"],
+        output_dir=OUTPUT_DIR,
+        seed=config["seed"],
     )

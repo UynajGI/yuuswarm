@@ -12,6 +12,7 @@ dependencies = [
     "numbakit-ode>=0.5",
     "numpy>=2.3.4",
     "python-dateutil>=2.9.0.post0",
+    "python-dotenv>=1.2.1",
     "ruff>=0.14.4",
     "scipy>=1.16.3",
 ]
