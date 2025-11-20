@@ -5,6 +5,7 @@
 input/
 output/
 assets/
+notebooks/
 
 # Temp & caches
 *.tmp
