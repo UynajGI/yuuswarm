@@ -1,33 +1,30 @@
 #!/bin/bash
 #SBATCH --job-name=Swarmlator_Scan
-#SBATCH --partition=standard
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=8G
 #SBATCH --time=01:00:00
-#SBATCH --array=0-32
-#SBATCH --output=logs/array_%A_%a.out
+#SBATCH --array=0-120
+#SBATCH --output=/share/home/jiangyuan/yuuswarm/logs/array_%A_%a.out  # 使用绝对路径
 
 # ==============================
-# 自动定位项目根目录（关键！）
+# 固定项目路径（使用绝对路径）
 # ==============================
-# 获取当前 Slurm 脚本的绝对路径（即使从其他目录提交也能正确解析）
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-# scripts/ 的父目录就是项目根
-PROJECT_ROOT="$(dirname "$SCRIPT_PATH")/.."
-PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd)"  # 标准化为绝对路径
+PROJECT_ROOT="/share/home/jiangyuan/yuuswarm"
 
-# 切换到项目根目录
+# 直接切换到项目目录
 cd "$PROJECT_ROOT"
 
-# 确保 logs 目录存在
+# 确保logs目录存在
 mkdir -p logs
 
-# 激活虚拟环境（在项目根下）
+# 激活虚拟环境
 if [ -f ".venv/bin/activate" ]; then
     source .venv/bin/activate
 else
     echo "ERROR: Virtual environment '.venv' not found in $PROJECT_ROOT"
+    echo "Available files in project root:"
+    ls -la
     exit 1
 fi
 
@@ -35,16 +32,17 @@ fi
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export NUMBA_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-# 实验 ID
 EXP_ID=$SLURM_ARRAY_TASK_ID
 
-echo "--- Starting Swarmlators Simulation ---"
-echo "Detected project root: $PROJECT_ROOT"
-echo "Slurm Job ID: $SLURM_JOB_ID"
-echo "Array Task ID: $EXP_ID"
-echo "Using $(nproc) CPUs, NUMBA threads: $NUMBA_NUM_THREADS"
+echo "=== 环境信息 ==="
+echo "用户: $USER"
+echo "项目目录: $PROJECT_ROOT"
+echo "当前目录: $(pwd)"
+echo "Python: $(which python)"
+echo "虚拟环境: $VIRTUAL_ENV"
+echo "任务ID: $EXP_ID"
 
-# 运行主程序（相对路径，从项目根调用）
-python scripts/main.py $EXP_ID
+# 运行主程序
+python scripts/main.py $EXP_ID --job-id $SLURM_ARRAY_JOB_ID --array-id $SLURM_ARRAY_TASK_ID
 
 echo "--- Simulation Finished ---"

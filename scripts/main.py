@@ -53,12 +53,8 @@ def load_config_by_id(exp_id: int):
     return config
 
 
-def get_run_id(config):
-    """根据核心参数生成一个简短的、唯一的运行ID。"""
-    # 提取所有影响模拟结果的关键参数
-    # 注意：必须将 NumPy 数组转换为列表，以保证 JSON 可序列化和哈希一致性
-
-    # 移除非核心/变动的元数据，如时间、运行时长等
+def get_run_id(config, array_id=None):
+    """根据核心参数生成唯一运行ID，并可选附加 array_id 到目录名。"""
     core_config = {
         "N": config["N"],
         "d": config["d"],
@@ -66,21 +62,22 @@ def get_run_id(config):
         "L": config["L"],
         "T_end": config["T_end"],
         "dt_fixed": config["dt_fixed"],
-        "params": config["params"].tolist(),  # 转换为列表
+        "params": config["params"].tolist(),
         "integrator": config["integrator"],
         "seed": config["seed"],
     }
 
-    # 将字典规范化为字符串，进行哈希计算
     config_str = json.dumps(core_config, sort_keys=True)
-
-    # 使用 SHA-1 或 SHA-256 生成哈希值，取前几位作为短ID
     run_hash = hashlib.sha1(config_str.encode("utf-8")).hexdigest()[:8]
 
-    # 构造可读性强的目录名
     dirname = (
         f"sim_N{config['N']}_T{config['T_end']:.0f}_{config['integrator']}_{run_hash}"
     )
+
+    # 附加 array_id 到目录名（不进哈希）
+    if array_id is not None:
+        dirname = f"task{array_id}_" + dirname
+
     return dirname
 
 
@@ -158,7 +155,18 @@ def save_results(t_array, y_array, config_data, output_dir: Path):
 
 
 def run_simulation(
-    N, d, d_s, L, T_end, dt_fixed, params, integrator_name, output_dir, seed=42
+    N,
+    d,
+    d_s,
+    L,
+    T_end,
+    dt_fixed,
+    params,
+    integrator_name,
+    output_dir,
+    seed=42,
+    job_id=None,
+    array_id=None,
 ):
     """
     执行模拟并保存结果。
@@ -267,7 +275,7 @@ def run_simulation(
         "L": L,
         "T_end": T_end,
         "dt_fixed": dt_fixed,
-        "params": params,  # <-- 原始 NumPy 数组
+        "params": params,
         "integrator": integrator_name,
         "total_time_s": total_time,
         "compile_time_s": compile_time,
@@ -277,8 +285,10 @@ def run_simulation(
         "seed": seed,
         "timestamp": timestamp,
         "status": "completed",
+        # 新增元数据
+        "job_id": job_id,
+        "array_id": array_id,
     }
-
     print("-" * 60)
     print("SIMULATION SUMMARY:")
     print(f"  Total run time: {config['total_time_s']:.4f}s")
@@ -289,8 +299,8 @@ def run_simulation(
     print(f"  Final time: {ts[-1]:.4f}")
     print("-" * 60)
 
-    run_id = get_run_id(config)
-    output_dir_new = Path(output_dir) / str(run_id)
+    run_id = get_run_id(config, array_id=array_id)
+    output_dir_new = Path(output_dir) / run_id
     print(f"Generated Run ID: {run_id}")
     print(f"Saving results to: {output_dir_new}")
 
@@ -307,15 +317,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run a Swarmlators N-body simulation based on an Experiment ID."
     )
-    # 只需要一个参数：实验 ID
     parser.add_argument(
         "experiment_id",
         type=int,
         help="The ID of the experiment to run from experiments.json.",
     )
+    parser.add_argument(
+        "--job-id",
+        type=str,
+        default=None,
+        help="Slurm job ID (e.g., %A). Used as top-level output folder.",
+    )
+    parser.add_argument(
+        "--array-id",
+        type=str,
+        default=None,
+        help="Slurm array task ID (e.g., %a). Appended to run directory name.",
+    )
 
     args = parser.parse_args()
     exp_id = args.experiment_id
+    job_id = args.job_id
+    array_id = args.array_id
 
     # 1. 加载配置
     try:
@@ -330,6 +353,11 @@ if __name__ == "__main__":
 
     # 2. 调用主函数
     # 注意：这里需要确保 run_simulation 函数的参数顺序和名称一致
+    base_output_dir = OUTPUT_DIR
+    if job_id:
+        base_output_dir = OUTPUT_DIR / job_id
+    base_output_dir.mkdir(parents=True, exist_ok=True)
+
     run_simulation(
         N=config["N"],
         d=config["d"],
@@ -339,6 +367,8 @@ if __name__ == "__main__":
         dt_fixed=config["dt_fixed"],
         params=config["params"],
         integrator_name=config["integrator"],
-        output_dir=OUTPUT_DIR,
+        output_dir=base_output_dir,
         seed=config["seed"],
+        job_id=job_id,
+        array_id=array_id,
     )
