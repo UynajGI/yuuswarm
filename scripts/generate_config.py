@@ -61,3 +61,5 @@ print(f"Saved configuration to {CONFIG_FILE}")
 # 获取最大ID (Slurm Array Job 范围用)
 max_id = len(experiments) - 1
 print(f"\nMax Array Job Index (SLURM_ARRAY_TASK_MAX): {max_id}")
+print(f"\nSBATCH array range: --array=0-{max_id}")
+print(f"Total experiments: {len(experiments)} (J: {len(J_values)}, K: {len(K_values)})")

@@ -11,13 +11,6 @@ import h5py
 import numpy as np
 from dotenv import load_dotenv
 
-# 确保能导入你的模块
-sys.path.append("/home/jiangyuan/swarmlators/src")
-# 导入你定义好的模块
-from engine import create_solver, init_states
-from integrator import rk2_fixed, rk23_adaptive
-from user_model import original_interaction
-
 # 获取当前脚本所在目录，然后向上一级得到项目根目录（proj/）
 SCRIPT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = SCRIPT_DIR.parent  # 因为 script/ 在 proj/ 下
@@ -25,6 +18,13 @@ PROJECT_ROOT = SCRIPT_DIR.parent  # 因为 script/ 在 proj/ 下
 # 加载 proj/.env
 dotenv_path = PROJECT_ROOT / ".env"
 load_dotenv(dotenv_path)
+
+# 确保能导入你的模块
+sys.path.append(str(PROJECT_ROOT / "src"))
+# 导入你定义好的模块
+from engine import create_solver, init_states  # noqa: E402
+from integrator import rk2_fixed, rk23_adaptive  # noqa: E402
+from user_model import original_interaction  # noqa: E402
 
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", PROJECT_ROOT / "output")).expanduser()
 
