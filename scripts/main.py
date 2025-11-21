@@ -32,24 +32,31 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def load_config_by_id(exp_id: int):
     """从 experiments.json 文件加载指定 ID 的配置。"""
-    # 假设 experiments.json 位于脚本运行目录或项目根目录
     CONFIG_PATH = SCRIPT_DIR / "experiments.json"
 
     if not CONFIG_PATH.exists():
         raise FileNotFoundError(f"Configuration file not found at: {CONFIG_PATH}")
 
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        all_configs = json.load(f)
+        data = json.load(f)
 
-    # 数组索引刚好对应 ID
+    # 兼容新旧格式
+    if isinstance(data, dict) and "experiments" in data:
+        # 新格式: { "global_meta": ..., "experiments": [...] }
+        all_configs = data["experiments"]
+    elif isinstance(data, list):
+        # 旧格式: [ ... ]
+        all_configs = data
+    else:
+        raise ValueError(f"Unrecognized format in {CONFIG_PATH}")
+
     if exp_id >= len(all_configs):
-        raise IndexError(f"Experiment ID {exp_id} out of bounds.")
+        raise IndexError(
+            f"Experiment ID {exp_id} out of bounds (total: {len(all_configs)})."
+        )
 
     config = all_configs[exp_id]
-
-    # 将 params 列表转换回 NumPy 数组
     config["params"] = np.array(config["params"])
-
     return config
 
 
