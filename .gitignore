@@ -16,3 +16,8 @@ __pycache__/
 .DS_Store
 build/
 dist/
+
+
+# Added by cargo
+
+target/

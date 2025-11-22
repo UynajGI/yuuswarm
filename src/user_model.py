@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# user_model.py
+# src/user_model.py
 import numpy as np
 from numba import njit
 

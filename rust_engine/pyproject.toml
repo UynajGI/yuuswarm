@@ -1,0 +1,22 @@
+# rust_engine/pyproject.toml
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rust_engine"
+version = "0.1.0"
+description = "High-performance ODE solver backend for Swarmlators"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+]
+
+[tool.maturin]
+# 指定 Python 模块名（import rust_engine）
+module-name = "rust_engine"
+# 如果你想让 Rust 编译产物直接放在项目根目录的 Python 路径中（比如用于开发）
+# 可以指定 python-source，但通常不需要
+# python-source = ".."
+features = ["pyo3/extension-module"]

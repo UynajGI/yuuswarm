@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# integrator.py
+# src/integrator.py
 import numpy as np
 from numba import njit
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# engine.py
+# src/engine.py
 import numpy as np
 from numba import njit, prange
 
