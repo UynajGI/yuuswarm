@@ -30,7 +30,7 @@ OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", PROJECT_ROOT / "output")).expanduser()
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def load_config_by_id(exp_id: int):
+def load_config_by_id(exp_id: int, job_id: str):
     """从 experiments.json 文件加载指定 ID 的配置。"""
     CONFIG_PATH = SCRIPT_DIR / "experiments.json"
 
@@ -39,6 +39,13 @@ def load_config_by_id(exp_id: int):
 
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
+
+    # 复制一份global_meta 到 job_id 目录
+    global_meta = data["global_meta"].copy()
+    job_dir = OUTPUT_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    with open(job_dir / "global_meta.json", "w") as f:
+        json.dump(global_meta, f, indent=4)
 
     # 兼容新旧格式
     if isinstance(data, dict) and "experiments" in data:
@@ -109,10 +116,10 @@ def save_results(t_array, y_array, config_data, output_dir: Path):
     with h5py.File(h5_path, "w") as hf:
         # 1.1 保存数据集 (t_history 和 y_history)
         # 启用 GZIP 压缩，压缩等级为 4 (0-9，数字越大压缩率越高，但写入越慢)
-        hf.create_dataset("t", data=t_array, compression="gzip", compression_opts=4)
+        hf.create_dataset("t", data=t_array, compression="gzip", compression_opts=7)
 
         # 状态空间路径通常最大，必须压缩
-        hf.create_dataset("y", data=y_array, compression="gzip", compression_opts=4)
+        hf.create_dataset("y", data=y_array, compression="gzip", compression_opts=7)
 
         # 1.2 保存配置为根属性 (Attributes)
         metadata = config_data.copy()
@@ -349,7 +356,7 @@ if __name__ == "__main__":
 
     # 1. 加载配置
     try:
-        config = load_config_by_id(exp_id)
+        config = load_config_by_id(exp_id=exp_id, job_id=job_id)
     except Exception as e:
         print(f"FATAL: Failed to load config for ID {exp_id}: {e}")
         sys.exit(1)

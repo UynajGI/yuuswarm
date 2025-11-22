@@ -7,19 +7,21 @@ import numpy as np
 # --- 1. 定义参数空间 ---
 
 # 待扫描的参数
-K_values = np.linspace(-0.2, 1.0, 11)  # 11个K值
-J_values = np.linspace(-0.2, 1.0, 11)
+K_values = np.arange(-1.0, 0.3 + 1e-5, 0.1)
+J_values = np.arange(-0.3, 1.0 + 1e-5, 0.1)
+K_values = np.arange(0, 0.6, 0.01)
+J_values = np.array([-0.2])
 
 # 固定参数
 N_fixed = 1000
 D_fixed = 2
 DS_fixed = 2
 L_fixed = 2.0
-T_end_fixed = 100.0
+T_end_fixed = 200.0
 DT_fixed_fixed = 0.1
 A_fixed, B_fixed = 1.0, 1.0
 SEED_fixed = 42
-Integrator_fixed = "rk2_fixed"
+Integrator_fixed = "rk2_fixed"  # rk2_fixed/rk23_adaptive
 
 # --- 2. 生成实验配置列表 ---
 experiments = []
@@ -48,14 +50,38 @@ for K_val in K_values:
         experiments.append(config)
         exp_id_counter += 1
 
+
+# 在生成 experiments 后
+global_meta = {
+    "scan_type": "J_K_grid",
+    "J_values": J_values.tolist(),
+    "K_values": K_values.tolist(),
+    "fixed_params": {
+        "N": N_fixed,
+        "d": D_fixed,
+        "d_s": DS_fixed,
+        "L": L_fixed,
+        "T_end": T_end_fixed,
+        "dt_fixed": DT_fixed_fixed,
+        "A": A_fixed,
+        "B": B_fixed,
+        "seed": SEED_fixed,
+        "integrator": Integrator_fixed,
+    },
+}
+
+
 # --- 3. 保存到 JSON 文件 ---
 SCRIPT_DIR = Path(__file__).parent.resolve()
 CONFIG_FILE = SCRIPT_DIR / "experiments.json"
 with open(CONFIG_FILE, "w") as f:
-    json.dump(experiments, f, indent=4)
+    json.dump({"global_meta": global_meta, "experiments": experiments}, f, indent=4)
+
 
 print(f"Generated {len(experiments)} experiments.")
 print(f"Saved configuration to {CONFIG_FILE}")
+
+# 保存时：
 
 # 获取最大ID (Slurm Array Job 范围用)
 max_id = len(experiments) - 1
