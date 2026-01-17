@@ -2,7 +2,6 @@
 .env
 .venv/
 .vscode/
-3rdparty/
 
 # Inputs & outputs (often large or sensitive)
 input/
