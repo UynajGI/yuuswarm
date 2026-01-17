@@ -1,5 +1,8 @@
 # Local config
 .env
+.venv/
+.vscode/
+3rdparty/
 
 # Inputs & outputs (often large or sensitive)
 input/
@@ -16,3 +19,11 @@ __pycache__/
 .DS_Store
 build/
 dist/
+
+
+# Added by cargo
+
+target/
+experiments/
+processed_data_lake/
+backup/
